@@ -2,7 +2,7 @@ manifestVersion: 1
 id: slskd-gluetun-slskd
 category: media
 name: slskd (via gluetun)
-version: "0.26.2-2"
+version: "0.26.2-3"
 tagline: Soulseek client whose traffic goes through the gluetun container of qBittorrent VPN
 description: >-
   Official slskd image sharing the network namespace of the gluetun container of
