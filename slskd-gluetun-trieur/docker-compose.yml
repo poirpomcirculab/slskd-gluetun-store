@@ -9,7 +9,8 @@ services:
   server:
     image: ghcr.io/poirpomcirculab/slskd-gluetun-trieur:1.0.5@sha256:af2a407cc86010ba042e778f9b3b90c66533ec61bf39574d6792b4e274339294
     init: true
-    user: "1000:1000"
+    # root: Médias/Musique (copied by the Umbrel file API) is owned by root, 0755
+    user: "0:0"
     environment:
       - MEDIAS=/medias
       - STATE=/data
