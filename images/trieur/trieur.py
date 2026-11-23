@@ -22,10 +22,16 @@ def res(parent, name):
             if unicodedata.normalize("NFC", x) == name: return Path(parent) / x
     except OSError: pass
     return Path(parent) / name
-TRIER, MUS, ORIG, WORK = (None,) * 4
+TRIER, MUS, ORIG, WORK, ROOT = (None,) * 5
 def init_paths():
     global TRIER, MUS, ORIG, WORK
-    TRIER = res(MEDIAS, "À trier"); MUS = res(MEDIAS, "Musique"); ORIG = res(MEDIAS, "Musique-originaux-à-valider")
+    global ROOT
+    ROOT = MEDIAS
+    cands = [MEDIAS / x for x in os.listdir(MEDIAS) if nfc(x) == "Médias"] if os.environ.get("PARENT") else [MEDIAS]
+    for c in cands:   # plusieurs « Médias » (NFC/NFD) : on prend celui qui contient À trier
+        if res(c, "À trier").exists(): ROOT = c; break
+    else: ROOT = cands[0] if cands else MEDIAS
+    TRIER = res(ROOT, "À trier"); MUS = res(ROOT, "Musique"); ORIG = res(ROOT, "Musique-originaux-à-valider")
     WORK = res(TRIER, "Musique") / ".work"
 STATE_F = Path(os.environ.get("STATE", "/data")) / "etat.json"
 UA = "umbrel-trieur/1.0 (circuit personnel)"
@@ -449,7 +455,7 @@ def passe(force=False, delai=60):
     try:
         if not force and not heure_ok(): return "hors plage"
         init_paths(); st = load()
-        if not TRIER.exists(): log("diag", repr(MEDIAS), "contient", [ascii(x) for x in sorted(os.listdir(MEDIAS))][:30] if MEDIAS.exists() else "absent", "TRIER =", ascii(str(TRIER)))
+        if not TRIER.exists(): log("diag", ascii(str(ROOT)), [ascii(x) for x in sorted(os.listdir(MEDIAS))][:40], [ascii(x) for x in sorted(os.listdir(ROOT))][:40])
         try: aiguiller(st, delai)
         except Exception as e: log("aiguilleur", type(e).__name__, e)
         try: musique(st, delai)
