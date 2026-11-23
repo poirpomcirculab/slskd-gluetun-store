@@ -34,6 +34,7 @@ def init_paths():
     TRIER = res(ROOT, "À trier"); MUS = res(ROOT, "Musique"); ORIG = res(ROOT, "Musique-originaux-à-valider")
     WORK = res(TRIER, "Musique") / ".work"
 STATE_F = Path(os.environ.get("STATE", "/data")) / "etat.json"
+VERSION = "1.0.5"
 UA = "umbrel-trieur/1.0 (circuit personnel)"
 AUDIO = {".flac", ".m4a", ".mp3", ".alac", ".wav", ".aiff", ".aif", ".ogg"}
 VIDEO = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".mpg", ".mpeg", ".ts"}
@@ -161,7 +162,7 @@ def tags_locaux(f):
     try: m = mutagen.File(f, easy=True)
     except Exception: m = None
     if m is None or not getattr(m, "info", None): raise ValueError("fichier illisible : " + f.name)
-    g = lambda k: (m.get(k) or [""])[0] if m.tags is not None else ""
+    g = lambda k: (m.get(k) or [""])[0].replace("\x00", "").strip() if m.tags is not None else ""
     t.update(artist=g("artist"), albumartist=g("albumartist"), album=g("album"), title=g("title"), date=g("date")[:4], mbalbum=g("musicbrainz_albumid"))
     for k, key in (("track", "tracknumber"), ("disc", "discnumber")):
         mm = re.match(r"\d+", g(key) or "")
@@ -211,6 +212,11 @@ def correspond(loc, rel):
     durs = [abs(l["length"] - p["length"]) <= 6 for l, p in zip(loc, pm) if p["length"]]
     return titres >= 0.85 and (not durs or sum(durs) / len(durs) >= 0.9)
 
+def requete(x):
+    """Nom pour la recherche MusicBrainz : sans [FLAC], {Remaster}, (1969)."""
+    x = re.sub(r"\[.*?\]|\{.*?\}|\((19|20)\d\d\)", " ", x or "")
+    return re.sub(r"\s+", " ", x.replace('"', " ")).strip()
+
 def identifier(loc, artiste, album):
     """-> (sortie MusicBrainz complète, pistes) ou lève ValueError (raison)."""
     inc = "recordings+artist-credits+release-groups"
@@ -219,9 +225,10 @@ def identifier(loc, artiste, album):
     if len(ids) == 1:
         cands = [mb(f"release/{ids.pop()}?inc={inc}&fmt=json")]
     else:
-        q = f'release:"{album}" AND artist:"{artiste}"' if artiste else f'release:"{album}"'
+        album_q, artiste_q = requete(album), requete(artiste)
+        q = f'release:"{album_q}" AND artist:"{artiste_q}"' if artiste_q else f'release:"{album_q}"'
         for r in mb("release/?" + urllib.parse.urlencode({"query": q, "fmt": "json", "limit": 8})).get("releases", []):
-            if r.get("score", 0) >= 85 and len(cands) < 6 and sim(r["title"], album) >= 0.85:
+            if r.get("score", 0) >= 85 and len(cands) < 6 and sim(r["title"], album_q) >= 0.85:
                 cands.append(mb(f"release/{r['id']}?inc={inc}&fmt=json"))
     bons = [c for c in cands if correspond(loc, c)]
     if not bons: raise ValueError(f"aucune sortie MusicBrainz ne correspond avec certitude (« {artiste} » — « {album} », {len(loc)} pistes)")
@@ -432,9 +439,12 @@ def musique(st, delai=60):
             artiste, album, n, conv, notes = traiter(u, st)
         except Exception as e:
             raison = str(e) if isinstance(e, ValueError) else f"erreur : {type(e).__name__} {e}"
+            if isinstance(e, PermissionError):
+                try: raison += f" [uid {os.getuid()}, Musique : uid {MUS.stat().st_uid} mode {oct(MUS.stat().st_mode)[-4:]}]"
+                except Exception: pass
             cible = (z.parent if z else u)
             nom = cible / ((z.stem + "_rapport.txt") if z else "_rapport.txt")
-            nom.write_text(f"Album : {u.name}\nSource : {z.name if z else u}\nDate : {datetime.now():%d/%m/%Y %H:%M}\nRaison : {raison}\n", encoding="utf-8")
+            nom.write_text(f"Album : {z.stem if z else u.name}\nSource : {z.name if z else u}\nDate : {datetime.now():%d/%m/%Y %H:%M}\nRaison : {raison}\n", encoding="utf-8")
             st["rapporte"][cle] = json.dumps(signature(z or u))
             nom_alb = nfc(z.stem if z else u.name); evenement(st, "bloque", f"Bloqué : {nom_alb} ({raison})", album=nom_alb)
             if z: shutil.rmtree(u, ignore_errors=True)
@@ -442,6 +452,7 @@ def musique(st, delai=60):
         # succès : les originaux partent hors bibliothèque, à valider
         dst = ORIG / propre(f"{artiste} - {album}"); dst.mkdir(parents=True, exist_ok=True)
         if z:
+            (z.parent / (z.stem + "_rapport.txt")).unlink(missing_ok=True)
             shutil.move(str(z), str(dst / z.name)); shutil.rmtree(u if u.parent == WORK else u.parent, ignore_errors=True)
         else:
             for f in u.iterdir(): shutil.move(str(f), str(dst / f.name))
@@ -455,6 +466,7 @@ def passe(force=False, delai=60):
     try:
         if not force and not heure_ok(): return "hors plage"
         init_paths(); st = load()
+        if st.get("version") != VERSION: st["rapporte"] = {}; st["version"] = VERSION   # nouvelle version : on retente les albums bloqués
         if not TRIER.exists(): log("diag", ascii(str(ROOT)), [ascii(x) for x in sorted(os.listdir(MEDIAS))][:40], [ascii(x) for x in sorted(os.listdir(ROOT))][:40])
         try: aiguiller(st, delai)
         except Exception as e: log("aiguilleur", type(e).__name__, e)

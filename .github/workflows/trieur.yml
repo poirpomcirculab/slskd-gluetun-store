@@ -18,4 +18,4 @@ jobs:
           context: images/trieur
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/poirpomcirculab/slskd-gluetun-trieur:1.0.3
+          tags: ghcr.io/poirpomcirculab/slskd-gluetun-trieur:1.0.5
