@@ -34,7 +34,7 @@ def init_paths():
     TRIER = res(ROOT, "À trier"); MUS = res(ROOT, "Musique"); ORIG = res(ROOT, "Musique-originaux-à-valider")
     WORK = res(TRIER, "Musique") / ".work"
 STATE_F = Path(os.environ.get("STATE", "/data")) / "etat.json"
-VERSION = "1.0.8"
+VERSION = "1.1.0"
 UA = "umbrel-trieur/1.0 (circuit personnel)"
 AUDIO = {".flac", ".m4a", ".mp3", ".alac", ".wav", ".aiff", ".aif", ".ogg"}
 VIDEO = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".mpg", ".mpeg", ".ts"}
@@ -62,6 +62,12 @@ EV_F = STATE_F.with_name("evenements.json")
 def evs():
     try: return json.loads(EV_F.read_text())
     except Exception: return []
+ATLOCK = threading.Lock()
+AT_F = STATE_F.with_name("attente.json")
+def attente():
+    try: return json.loads(AT_F.read_text())
+    except Exception: return []
+def attente_ecrire(l): AT_F.parent.mkdir(parents=True, exist_ok=True); AT_F.write_text(json.dumps(l, ensure_ascii=False))
 def evenement(st, type_, texte, **kw):
     with EVLOCK:
         e = evs(); e.append(dict(id=uuid.uuid4().hex[:10], type=type_, texte=texte, **kw)); EV_F.parent.mkdir(parents=True, exist_ok=True); EV_F.write_text(json.dumps(e, ensure_ascii=False)); log("EVT", type_, texte)
@@ -454,16 +460,46 @@ def musique(st, delai=60):
             nom_alb = nfc(z.stem if z else u.name); evenement(st, "bloque", f"Bloqué : {nom_alb} ({raison})", album=nom_alb)
             if z: shutil.rmtree(u, ignore_errors=True)
             continue
-        # succès : les originaux partent hors bibliothèque, à valider
-        dst = ORIG / propre(f"{artiste} - {album}"); dst.mkdir(parents=True, exist_ok=True)
+        # succès : les originaux attendent (cachés, dans À trier/Musique) la vérification Navidrome, puis sont supprimés (/nettoyer)
+        ident = uuid.uuid4().hex[:10]; dst = res(TRIER, "Musique") / ".attente" / ident; dst.mkdir(parents=True, exist_ok=True)
         if z:
             (z.parent / (z.stem + "_rapport.txt")).unlink(missing_ok=True)
             shutil.move(str(z), str(dst / z.name)); shutil.rmtree(u if u.parent == WORK else u.parent, ignore_errors=True)
         else:
             for f in u.iterdir(): shutil.move(str(f), str(dst / f.name))
             vider_parents(u)
+        with ATLOCK: attente_ecrire(attente() + [dict(id=ident, artiste=artiste, album=album, pistes=n)])
         st["rapporte"].pop(cle, None); st["sig"].pop(cle, None)
         evenement(st, "ajoute", f"Ajouté : {artiste} — {album}", artiste=artiste, album=album, pistes=n, converties=conv, notes=notes)
+
+def nettoyer(ids):
+    """Suppression définitive des originaux d'albums vérifiés dans Navidrome (par n8n)."""
+    n = 0
+    with ATLOCK:
+        att = attente(); rest = []
+        for e in att:
+            if e["id"] in ids:
+                shutil.rmtree(res(TRIER, "Musique") / ".attente" / e["id"], ignore_errors=True); n += 1; log("originaux supprimés", e["artiste"], "—", e["album"])
+            else: rest.append(e)
+        attente_ecrire(rest)
+    return n
+
+def balayage_slskd():
+    """Téléchargements-slskd/complete ne garde rien après import : un dossier est supprimé (définitivement) s'il a plus d'une heure
+    et qu'un album de même titre (sans [année], (édition)) existe déjà dans Musique avec au moins autant de pistes."""
+    comp = res(res(ROOT, "Téléchargements-slskd"), "complete")
+    if not comp.is_dir(): return
+    index = {}
+    for a in MUS.iterdir():
+        if a.is_dir():
+            for al in a.iterdir():
+                if al.is_dir(): index[norm(al.name)] = max(index.get(norm(al.name), 0), sum(1 for f in al.iterdir() if f.suffix.lower() in AUDIO))
+    for d in comp.iterdir():
+        if not d.is_dir(): continue
+        fs = fichiers(d); au = [f for f in fs if f.suffix.lower() in AUDIO]
+        if not au or time.time() - max(f.stat().st_mtime for f in fs) < 3600: continue
+        if index.get(norm(re.sub(r"\[.*?\]|\{.*?\}", " ", d.name)), 0) >= len(au):
+            shutil.rmtree(d, ignore_errors=True); log("téléchargement slskd supprimé (album déjà dans Musique)", d.name)
 
 # ---------- boucle et serveur ----------
 def passe(force=False, delai=60):
@@ -477,6 +513,8 @@ def passe(force=False, delai=60):
         except Exception as e: log("aiguilleur", type(e).__name__, e)
         try: musique(st, delai)
         except Exception as e: log("musique", type(e).__name__, e)
+        try: balayage_slskd()
+        except Exception as e: log("balayage slskd", type(e).__name__, e)
         st["derniere"] = datetime.now().isoformat(timespec="seconds"); save(st)
         return "ok"
     finally: LOCK.release()
@@ -488,6 +526,7 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         st = load()
         if self.path.startswith("/evenements"): return self.rep(evs())
+        if self.path.startswith("/attente"): return self.rep(attente())
         self.rep({"derniere_passe": st.get("derniere"), "evenements_en_attente": len(evs()), "journal": LOG[-30:]})
     def do_POST(self):
         u = urllib.parse.urlparse(self.path); q = urllib.parse.parse_qs(u.query)
@@ -495,6 +534,8 @@ class H(http.server.BaseHTTPRequestHandler):
             force, delai = q.get("force") == ["1"], int(q.get("delai", ["60"])[0])
             if q.get("sync") == ["1"]: return self.rep({"resultat": passe(force, delai)})
             threading.Thread(target=passe, args=(force, delai), daemon=True).start(); return self.rep({"lance": True})
+        if u.path == "/nettoyer":
+            return self.rep({"supprimes": nettoyer(set(json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"[]")))})
         if u.path == "/evenements/ack":
             ids = set(json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"[]"))
             with EVLOCK: EV_F.write_text(json.dumps([e for e in evs() if e["id"] not in ids], ensure_ascii=False))
