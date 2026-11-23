@@ -7,7 +7,7 @@ services:
       APP_PORT: 8080
 
   server:
-    image: ghcr.io/poirpomcirculab/slskd-gluetun-trieur:1.1.0
+    image: ghcr.io/poirpomcirculab/slskd-gluetun-trieur:1.1.0@sha256:7b1504587ae2c73f38e7520bf51620a118bbb9c00f776605d6cf028c62bae957
     init: true
     # root: Médias/Musique (copied by the Umbrel file API) is owned by root, 0755
     user: "0:0"
