@@ -7,7 +7,7 @@ services:
       APP_PORT: 8080
 
   server:
-    image: ghcr.io/poirpomcirculab/slskd-gluetun-trieur:1.0.5
+    image: ghcr.io/poirpomcirculab/slskd-gluetun-trieur:1.0.5@sha256:af2a407cc86010ba042e778f9b3b90c66533ec61bf39574d6792b4e274339294
     init: true
     user: "1000:1000"
     environment:
