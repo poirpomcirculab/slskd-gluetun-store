@@ -15,9 +15,18 @@ from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
 from mutagen.flac import FLAC
 
 MEDIAS = Path(os.environ.get("MEDIAS", "/medias"))
-TRIER, MUS = MEDIAS / "À trier", MEDIAS / "Musique"
-ORIG = MEDIAS / "Musique-originaux-à-valider"
-WORK = TRIER / "Musique" / ".work"
+def res(parent, name):
+    """Entrée existante de `parent` dont le nom est le même à la normalisation Unicode près (macOS écrit en NFD), sinon parent/name."""
+    try:
+        for x in os.listdir(parent):
+            if unicodedata.normalize("NFC", x) == name: return Path(parent) / x
+    except OSError: pass
+    return Path(parent) / name
+TRIER, MUS, ORIG, WORK = (None,) * 4
+def init_paths():
+    global TRIER, MUS, ORIG, WORK
+    TRIER = res(MEDIAS, "À trier"); MUS = res(MEDIAS, "Musique"); ORIG = res(MEDIAS, "Musique-originaux-à-valider")
+    WORK = res(TRIER, "Musique") / ".work"
 STATE_F = Path(os.environ.get("STATE", "/data")) / "etat.json"
 UA = "umbrel-trieur/1.0 (circuit personnel)"
 AUDIO = {".flac", ".m4a", ".mp3", ".alac", ".wav", ".aiff", ".aif", ".ogg"}
@@ -115,13 +124,13 @@ def classer(p):
 
 def aiguiller(st, delai=60):
     for p in sorted(TRIER.iterdir()):
-        if not cache(p) or p.name in RESERVES: continue
+        if not cache(p) or nfc(p.name) in RESERVES: continue
         cle = "r:" + nfc(p.name)
         if not stable(st, cle, p, delai): continue
         cat, raison = classer(p)
         sig = json.dumps(st["sig"][cle])
         if cat:
-            dest = TRIER / cat / p.name
+            dest = res(TRIER, cat) / p.name
             if dest.exists(): cat, raison = None, f"« {p.name} » existe déjà dans {cat}"
             else:
                 shutil.move(str(p), str(dest)); st["sig"].pop(cle, None); log("aiguillé", p.name, "->", cat); continue
@@ -136,7 +145,7 @@ def dossiers_audio(p):
     if not audio: return []
     res = set()
     for d in audio:
-        if re.match(r"^(cd|disc|disque)[ ._-]*\d+", d.name, re.I) and d.parent != MUS / "." and d.parent not in (MUS,):
+        if re.match(r"^(cd|disc|disque)[ ._-]*\d+", d.name, re.I) and d.parent != MUS:
             res.add(d.parent)
         else: res.add(d)
     return sorted(res)
@@ -344,7 +353,7 @@ def traiter(unit, st, zipsrc=None):
     comp = rel["artist-credit"][0]["artist"]["id"] == "89ad4ac3-39f7-470e-963a-56509c546377"
     an = maj("date") if maj("date") else (rel.get("date") or "")[:4]
     nbd = len(rel["media"])
-    artdir = MUS / ("Compilations" if comp else nom_artiste(credit, rel))
+    artdir = res(MUS, "Compilations") if comp else MUS / nom_artiste(credit, rel)
     if dossier_existant(artdir, rel["title"]): raise ValueError(f"doublon : « {rel['title']} » existe déjà dans Musique/{artdir.name}")
     dest = WORK / hashlib.md5(str(unit).encode()).hexdigest()[:10]
     shutil.rmtree(dest, ignore_errors=True); dest.mkdir(parents=True)
@@ -383,12 +392,12 @@ def traiter(unit, st, zipsrc=None):
     return artdir.name, rel["title"], len(pm), conv, notes
 
 def vider_parents(p):
-    base = TRIER / "Musique"
+    base = res(TRIER, "Musique")
     while p != base and p.exists() and not [x for x in p.iterdir() if x.name != ".DS_Store"]:
         shutil.rmtree(p); p = p.parent
 
 def musique(st, delai=60):
-    base = TRIER / "Musique"
+    base = res(TRIER, "Musique")
     WORK.mkdir(parents=True, exist_ok=True)
     unites = []   # (clé, dossier, zip d'origine)
     for p in sorted(base.iterdir()):
@@ -439,7 +448,7 @@ def passe(force=False, delai=60):
     if not LOCK.acquire(blocking=False): return "déjà en cours"
     try:
         if not force and not heure_ok(): return "hors plage"
-        st = load()
+        init_paths(); st = load()
         try: aiguiller(st, delai)
         except Exception as e: log("aiguilleur", type(e).__name__, e)
         try: musique(st, delai)
