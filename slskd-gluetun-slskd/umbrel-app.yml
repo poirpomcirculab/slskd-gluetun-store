@@ -1,0 +1,20 @@
+manifestVersion: 1
+id: slskd-gluetun-slskd
+category: media
+name: slskd (via gluetun)
+version: "0.26.2"
+tagline: Soulseek client whose traffic goes through the gluetun container of qBittorrent VPN
+description: >-
+  Official slskd image sharing the network namespace of the gluetun container of
+  the "qBittorrent VPN" app (home-qbittorrent-vpn_gluetun_1): all Soulseek
+  traffic leaves through the VPN tunnel and stops if the tunnel drops. Requires
+  qBittorrent VPN to be installed and running.
+developer: slskd
+website: https://github.com/slskd/slskd
+dependencies: []
+repo: https://github.com/slskd/slskd
+support: https://github.com/slskd/slskd/issues
+port: 5030
+releaseNotes: ""
+submitter: ""
+submission: ""

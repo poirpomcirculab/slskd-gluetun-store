@@ -1,0 +1,19 @@
+manifestVersion: 1
+id: slskd-gluetun-soularr
+category: media
+name: Soularr
+version: "1.2.3"
+tagline: Lidarr to slskd bridge
+description: >-
+  Soularr (image mrusse08/soularr) reads the wanted albums of Lidarr, searches
+  them through slskd and hands the result back to Lidarr for import. Requires
+  Lidarr and slskd.
+developer: mrusse
+website: https://github.com/mrusse/soularr
+dependencies: []
+repo: https://github.com/mrusse/soularr
+support: https://github.com/mrusse/soularr/issues
+port: 8265
+releaseNotes: ""
+submitter: ""
+submission: ""

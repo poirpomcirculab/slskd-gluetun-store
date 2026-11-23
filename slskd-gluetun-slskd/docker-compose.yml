@@ -1,0 +1,27 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: home-qbittorrent-vpn_gluetun_1
+      APP_PORT: 5030
+
+  server:
+    image: slskd/slskd:0.26.2@sha256:d0963a3e5b16facd295bf4f2156dad0182f246b1b21a032cae12f5494c694843
+    init: true
+    user: "1000:1000"
+    # Same network stack as gluetun: outbound traffic only through the VPN.
+    network_mode: "container:home-qbittorrent-vpn_gluetun_1"
+    environment:
+      - TZ=Etc/UTC
+      - SLSKD_REMOTE_CONFIGURATION=true
+      - SLSKD_DOWNLOADS_DIR=/downloads/complete
+      - SLSKD_INCOMPLETE_DIR=/downloads/incomplete
+      - SLSKD_SHARED_DIR=/music
+      - SLSKD_HTTP_IP_ADDRESS=0.0.0.0
+      - SLSKD_NO_HTTPS=true
+    volumes:
+      - ${APP_DATA_DIR}/data/app:/app
+      - ${UMBREL_ROOT}/data/storage/downloads/Médias/Téléchargements-slskd:/downloads
+      - ${UMBREL_ROOT}/data/storage/downloads/Médias/Musique:/music:ro
+    restart: on-failure
