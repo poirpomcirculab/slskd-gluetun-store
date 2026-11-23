@@ -34,7 +34,7 @@ def init_paths():
     TRIER = res(ROOT, "À trier"); MUS = res(ROOT, "Musique"); ORIG = res(ROOT, "Musique-originaux-à-valider")
     WORK = res(TRIER, "Musique") / ".work"
 STATE_F = Path(os.environ.get("STATE", "/data")) / "etat.json"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 UA = "umbrel-trieur/1.0 (circuit personnel)"
 AUDIO = {".flac", ".m4a", ".mp3", ".alac", ".wav", ".aiff", ".aif", ".ogg"}
 VIDEO = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".mpg", ".mpeg", ".ts"}
@@ -245,7 +245,7 @@ def identifier(loc, artiste, album):
 
 def sans_mb(loc, artiste, album, zip_):
     """Achat Bandcamp absent de MusicBrainz : on accepte si les tags sont complets et cohérents (pistes 1..N sans trou, un seul album/artiste)."""
-    bc = zip_ and any("bandcamp" in str(mutagen.File(f).tags.get("COMM::eng", "") if mutagen.File(f).tags is not None else "").lower() for f, _ in loc[:3])
+    bc = any("bandcamp" in str(mutagen.File(f).tags.get("COMM::eng", "") if mutagen.File(f).tags is not None else "").lower() for f, _ in loc[:3])
     if not bc or not artiste or not album: return None
     if len({t["album"] for _, t in loc}) != 1 or any(not t["title"] or not t["artist"] for _, t in loc): return None
     if [t["track"] for _, t in loc] != list(range(1, len(loc) + 1)) or {t["disc"] for _, t in loc} != {1}: return None
