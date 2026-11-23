@@ -34,7 +34,7 @@ def init_paths():
     TRIER = res(ROOT, "À trier"); MUS = res(ROOT, "Musique"); ORIG = res(ROOT, "Musique-originaux-à-valider")
     WORK = res(TRIER, "Musique") / ".work"
 STATE_F = Path(os.environ.get("STATE", "/data")) / "etat.json"
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 UA = "umbrel-trieur/1.0 (circuit personnel)"
 AUDIO = {".flac", ".m4a", ".mp3", ".alac", ".wav", ".aiff", ".aif", ".ogg"}
 VIDEO = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".mpg", ".mpeg", ".ts"}
@@ -244,18 +244,15 @@ def sans_mb(loc, artiste, album, zip_):
     if len({t["album"] for _, t in loc}) != 1 or any(not t["title"] or not t["artist"] for _, t in loc): return None
     if [t["track"] for _, t in loc] != list(range(1, len(loc) + 1)) or {t["disc"] for _, t in loc} != {1}: return None
     ac = [{"name": artiste, "artist": {"id": ""}, "joinphrase": ""}]
-    return {"id": "", "title": album, "date": "", "release-group": {"id": ""}, "artist-credit": ac,
+    return {"_sans_mb": True, "id": "", "title": album, "date": "", "release-group": {"id": ""}, "artist-credit": ac,
             "media": [{"position": 1, "tracks": [{"position": t["track"], "title": t["title"], "length": int(t["length"] * 1000), "id": "", "recording": {"id": ""},
                                                    "artist-credit": [{"name": t["artist"], "artist": {"id": ""}}]} for _, t in loc]}]}
 
-def principal(credits):
-    """Artiste de l'album = artiste principal : on coupe à la première mention feat./featuring/with/presents (jamais de « featuring » dans l'artiste de l'album)."""
-    out = ""
-    for c in credits:
-        out += c["name"]
-        if re.search(r"feat|\bft\b|\bwith\b|presents|vs\.?", c.get("joinphrase", ""), re.I): break
-        out += c.get("joinphrase", "")
-    return out.strip(" ,")
+def principal(credits, mb=True):
+    """Artiste de l'album = artiste principal. Avec MusicBrainz : premier artiste du crédit. Sans (achat Bandcamp) : texte coupé sur feat./featuring/ft. seulement."""
+    n = credits[0]["name"]
+    if mb: return n.strip()
+    return re.split(r"\s+(?:feat\.?|featuring|ft\.?)\s+", n, maxsplit=1, flags=re.I)[0].strip()
 
 def nom_artiste(credit, ac):
     """Réutilise le dossier d'artiste existant dans Musique (casse/accents), sinon le nom MusicBrainz."""
@@ -370,7 +367,7 @@ def traiter(unit, st, zipsrc=None):
         if rel is None: raise
         note_mb = "absent de MusicBrainz : tags du fichier conservés (achat Bandcamp), sans identifiants MusicBrainz"
     pm = pistes_mb(rel)
-    credit = principal(rel["artist-credit"])
+    credit = principal(rel["artist-credit"], not rel.get("_sans_mb"))
     comp = rel["artist-credit"][0]["artist"]["id"] == "89ad4ac3-39f7-470e-963a-56509c546377"
     an = ((rel["release-group"].get("first-release-date") or "")[:4] or (rel.get("date") or "")[:4] or maj("date"))   # année de sortie originale du groupe de sorties
     nbd = len(rel["media"])
