@@ -2,7 +2,7 @@ manifestVersion: 1
 id: slskd-gluetun-trieur
 category: media
 name: Trieur
-version: "1.0.3"
+version: "1.0.4"
 tagline: Drop zone sorter for films, series and music
 description: >-
   Watches the root of Médias/À trier and routes each item to Films, Séries or
