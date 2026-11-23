@@ -1,0 +1,21 @@
+manifestVersion: 1
+id: slskd-gluetun-bandcamp
+category: media
+name: Bandcamp
+version: "1.0.0"
+tagline: Download new Bandcamp purchases (MP3 320) into the drop zone
+description: >-
+  Checks your Bandcamp collection every hour from 9 to 22 and downloads only
+  purchases made after the first run (the existing collection is marked as
+  done without any download) as MP3 320 into the root of Médias/À trier.
+  Session cookie read from a folder outside this repository. Events are read
+  by n8n on port 8080 (internal).
+developer: poirpomcirculab
+website: https://github.com/poirpomcirculab/slskd-gluetun-store
+dependencies: []
+repo: https://github.com/poirpomcirculab/slskd-gluetun-store
+support: https://github.com/poirpomcirculab/slskd-gluetun-store/issues
+port: 8080
+releaseNotes: ""
+submitter: ""
+submission: ""

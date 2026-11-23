@@ -1,0 +1,24 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: slskd-gluetun-bandcamp_server_1
+      APP_PORT: 8080
+
+  server:
+    image: ghcr.io/poirpomcirculab/slskd-gluetun-bandcamp:1.0.0
+    init: true
+    # root: Médias/À trier may be owned by root (files copied through the Umbrel file API)
+    user: "0:0"
+    environment:
+      - CONFIG=/config
+      - STATE=/data
+      - TRIER=/atrier
+      - FORMAT=mp3-320
+    volumes:
+      - ${APP_DATA_DIR}/data/etat:/data
+      # cookie folder outside the repository (Home/.bandcamp/cookies.txt, written from the macOS keychain)
+      - ${UMBREL_ROOT}/data/storage/downloads/.bandcamp:/config:ro
+      - ${UMBREL_ROOT}/data/storage/downloads/Médias/À trier:/atrier
+    restart: on-failure
