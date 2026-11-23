@@ -2,7 +2,7 @@ manifestVersion: 1
 id: slskd-gluetun-bandcamp
 category: media
 name: Bandcamp
-version: "1.0.0"
+version: "1.0.1"
 tagline: Download new Bandcamp purchases (MP3 320) into the drop zone
 description: >-
   Checks your Bandcamp collection every hour from 9 to 22 and downloads only

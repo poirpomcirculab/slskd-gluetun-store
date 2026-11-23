@@ -7,7 +7,7 @@ services:
       APP_PORT: 8080
 
   server:
-    image: ghcr.io/poirpomcirculab/slskd-gluetun-bandcamp:1.0.0
+    image: ghcr.io/poirpomcirculab/slskd-gluetun-bandcamp:1.0.1
     init: true
     # root: Médias/À trier may be owned by root (files copied through the Umbrel file API)
     user: "0:0"

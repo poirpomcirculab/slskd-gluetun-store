@@ -18,4 +18,4 @@ jobs:
           context: images/bandcamp
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/poirpomcirculab/slskd-gluetun-bandcamp:1.0.0
+          tags: ghcr.io/poirpomcirculab/slskd-gluetun-bandcamp:1.0.1
