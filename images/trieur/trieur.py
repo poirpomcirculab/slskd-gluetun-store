@@ -449,6 +449,7 @@ def passe(force=False, delai=60):
     try:
         if not force and not heure_ok(): return "hors plage"
         init_paths(); st = load()
+        if not TRIER.exists(): log("diag", repr(MEDIAS), "contient", [ascii(x) for x in sorted(os.listdir(MEDIAS))][:30] if MEDIAS.exists() else "absent", "TRIER =", ascii(str(TRIER)))
         try: aiguiller(st, delai)
         except Exception as e: log("aiguilleur", type(e).__name__, e)
         try: musique(st, delai)
