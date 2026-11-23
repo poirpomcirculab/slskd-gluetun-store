@@ -30,7 +30,7 @@ def etat(**kw):
 
 def cookie():
     try: c = COOKIE_F.read_text().strip()
-    except OSError: return None
+    except OSError as e: log("lecture cookie :", type(e).__name__, e, "| dossier :", sorted(x.name for x in COOKIE_F.parent.iterdir()) if COOKIE_F.parent.is_dir() else "absent"); return None
     return c if "=" in c else ("identity=" + c if c else None)   # accepte la valeur seule ou l'en-tête Cookie complet
 
 def cookie_mort(raison):
