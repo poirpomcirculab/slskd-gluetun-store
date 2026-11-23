@@ -10,25 +10,6 @@ services:
     image: slskd/slskd:0.26.2@sha256:d0963a3e5b16facd295bf4f2156dad0182f246b1b21a032cae12f5494c694843
     init: true
     user: "1000:1000"
-    # Watchdog: if gluetun is recreated, this container keeps a dead network namespace
-    # (the web UI stays up, but nothing resolves). Stop slskd after 5 minutes without DNS
-    # so that "restart: on-failure" re-attaches the container to the new gluetun.
-    entrypoint:
-      - /usr/bin/tini
-      - --
-      - sh
-      - -c
-      - |
-        /entrypoint.sh ./slskd &
-        P=$$!
-        sleep 90
-        N=0
-        while kill -0 $$P 2>/dev/null; do
-          sleep 15
-          if timeout 5 getent hosts vps.slsknet.org >/dev/null 2>&1; then N=0; else N=$$((N+1)); fi
-          [ $$N -ge 20 ] && { kill $$P; wait $$P; exit 1; }
-        done
-        wait $$P
     # Same network stack as gluetun: outbound traffic only through the VPN.
     network_mode: "container:home-qbittorrent-vpn_gluetun_1"
     environment:
