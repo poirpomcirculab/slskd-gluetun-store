@@ -2,7 +2,7 @@ manifestVersion: 1
 id: slskd-gluetun-soularr
 category: media
 name: Soularr
-version: "1.2.3"
+version: "1.2.3-1"
 tagline: Lidarr to slskd bridge
 description: >-
   Soularr (image mrusse08/soularr) reads the wanted albums of Lidarr, searches
