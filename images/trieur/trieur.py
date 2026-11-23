@@ -34,7 +34,7 @@ def init_paths():
     TRIER = res(ROOT, "À trier"); MUS = res(ROOT, "Musique"); ORIG = res(ROOT, "Musique-originaux-à-valider")
     WORK = res(TRIER, "Musique") / ".work"
 STATE_F = Path(os.environ.get("STATE", "/data")) / "etat.json"
-VERSION = "1.0.5"
+VERSION = "1.0.7"
 UA = "umbrel-trieur/1.0 (circuit personnel)"
 AUDIO = {".flac", ".m4a", ".mp3", ".alac", ".wav", ".aiff", ".aif", ".ogg"}
 VIDEO = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".wmv", ".mpg", ".mpeg", ".ts"}
@@ -248,6 +248,15 @@ def sans_mb(loc, artiste, album, zip_):
             "media": [{"position": 1, "tracks": [{"position": t["track"], "title": t["title"], "length": int(t["length"] * 1000), "id": "", "recording": {"id": ""},
                                                    "artist-credit": [{"name": t["artist"], "artist": {"id": ""}}]} for _, t in loc]}]}
 
+def principal(credits):
+    """Artiste de l'album = artiste principal : on coupe à la première mention feat./featuring/with/presents (jamais de « featuring » dans l'artiste de l'album)."""
+    out = ""
+    for c in credits:
+        out += c["name"]
+        if re.search(r"feat|\bft\b|\bwith\b|presents|vs\.?", c.get("joinphrase", ""), re.I): break
+        out += c.get("joinphrase", "")
+    return out.strip(" ,")
+
 def nom_artiste(credit, ac):
     """Réutilise le dossier d'artiste existant dans Musique (casse/accents), sinon le nom MusicBrainz."""
     n = norm(credit, False)
@@ -300,10 +309,9 @@ def pochette(unit, fs, rel, dest):
     if bd < 600: note = f"pochette de {bd} px seulement"
     return out.read_bytes(), note
 
-def ecrire_tags(f, p, rel, an, nbd, total, cover, comp):
+def ecrire_tags(f, p, rel, an, nbd, total, cover, comp, albumartist):
     ids = dict(album=rel["id"], rg=rel["release-group"]["id"], rec=p["rid"], trk=p["tid"], art=p["aid"][0] if p["aid"] else "")
     aa = rel["artist-credit"][0]["artist"]["id"]
-    albumartist = "".join(c["name"] + c.get("joinphrase", "") for c in rel["artist-credit"])
     if f.suffix == ".mp3":
         try: t = ID3(f); t.delete(f)
         except ID3NoHeaderError: pass
@@ -362,9 +370,9 @@ def traiter(unit, st, zipsrc=None):
         if rel is None: raise
         note_mb = "absent de MusicBrainz : tags du fichier conservés (achat Bandcamp), sans identifiants MusicBrainz"
     pm = pistes_mb(rel)
-    credit = "".join(c["name"] + c.get("joinphrase", "") for c in rel["artist-credit"])
+    credit = principal(rel["artist-credit"])
     comp = rel["artist-credit"][0]["artist"]["id"] == "89ad4ac3-39f7-470e-963a-56509c546377"
-    an = maj("date") if maj("date") else (rel.get("date") or "")[:4]
+    an = ((rel["release-group"].get("first-release-date") or "")[:4] or (rel.get("date") or "")[:4] or maj("date"))   # année de sortie originale du groupe de sorties
     nbd = len(rel["media"])
     artdir = res(MUS, "Compilations") if comp else MUS / nom_artiste(credit, rel)
     if dossier_existant(artdir, rel["title"]): raise ValueError(f"doublon : « {rel['title']} » existe déjà dans Musique/{artdir.name}")
@@ -389,7 +397,7 @@ def traiter(unit, st, zipsrc=None):
                 conv += 1
             d = MP3(out).info.length if out.suffix == ".mp3" else MP4(out).info.length
             if abs(d - t["length"]) > 2: raise ValueError(f"durée anormale après traitement : {f.name} ({t['length']:.0f} s -> {d:.0f} s)")
-            ecrire_tags(out, p, rel, an, nbd, len(pm) if nbd == 1 else sum(1 for q in pm if q["disc"] == p["disc"]), cover, comp)
+            ecrire_tags(out, p, rel, an, nbd, len(pm) if nbd == 1 else sum(1 for q in pm if q["disc"] == p["disc"]), cover, comp, credit)
             lrc = paroles(p["credit"] or credit, p["title"], rel["title"], d)
             if lrc: (dest / (base + ".lrc")).write_text(lrc, encoding="utf-8")
         if cover: (dest / "folder.jpg").write_bytes(cover)
