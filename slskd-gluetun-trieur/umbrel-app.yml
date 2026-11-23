@@ -1,0 +1,20 @@
+manifestVersion: 1
+id: slskd-gluetun-trieur
+category: media
+name: Trieur
+version: "1.0.0"
+tagline: Drop zone sorter for films, series and music
+description: >-
+  Watches the root of Médias/À trier and routes each item to Films, Séries or
+  Musique, then processes music albums (unzip, MusicBrainz match, MP3 320,
+  tags, cover, synced lyrics) into Médias/Musique. Status and events are read
+  by n8n on port 8080 (internal).
+developer: poirpomcirculab
+website: https://github.com/poirpomcirculab/slskd-gluetun-store
+dependencies: []
+repo: https://github.com/poirpomcirculab/slskd-gluetun-store
+support: https://github.com/poirpomcirculab/slskd-gluetun-store/issues
+port: 8080
+releaseNotes: ""
+submitter: ""
+submission: ""
